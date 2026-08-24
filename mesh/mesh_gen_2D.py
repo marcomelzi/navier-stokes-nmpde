@@ -58,14 +58,20 @@ gmsh.model.geo.synchronize()
 # ==============================================================================
 # DEFINE THE PHYSICAL GROUPS
 # ==============================================================================
+ID_INLET = 1
+ID_OUTLET = 2
+ID_WALLS = 3
+ID_CIRCLE = 4
+ID_DOMAIN = 10
+
 # a) BCs (1 dim (lines))
-gmsh.model.addPhysicalGroup(1, [l_inlet], name="Inlet")
-gmsh.model.addPhysicalGroup(1, [l_outlet], name="Outlet")
-gmsh.model.addPhysicalGroup(1, [l_top, l_bottom], name="Walls")
-gmsh.model.addPhysicalGroup(1, [arc_top, arc_bottom], name="Circle")
+gmsh.model.addPhysicalGroup(1, [l_inlet], ID_INLET, name="Inlet")
+gmsh.model.addPhysicalGroup(1, [l_outlet], ID_OUTLET, name="Outlet")
+gmsh.model.addPhysicalGroup(1, [l_top, l_bottom], ID_WALLS, name="Walls")
+gmsh.model.addPhysicalGroup(1, [arc_top, arc_bottom], ID_CIRCLE, name="Circle")
 
 # b) Surface (2 dim)
-gmsh.model.addPhysicalGroup(2, [surface], name="Domain")
+gmsh.model.addPhysicalGroup(2, [surface], ID_DOMAIN, name="Domain")
 
 # ==============================================================================
 # ADVANCED MESH REFINING
