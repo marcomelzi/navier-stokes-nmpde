@@ -100,8 +100,8 @@ gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 mesh_configs = [
-    {"name": "Coarse", "cl_channel": 0.05,  "cl_circle": 0.025,  "filename": "Navier_Stokes_2D_coarse.msh"},
-    {"name": "Fine",   "cl_channel": 0.025, "cl_circle": 0.0125, "filename": "Navier_Stokes_2D_fine.msh"},
+    {"name": "Coarse", "cl_channel": 0.05,  "cl_circle": 0.01,  "filename": "Navier_Stokes_2D_coarse.msh"},
+    {"name": "Fine",   "cl_channel": 0.025, "cl_circle": 0.01, "filename": "Navier_Stokes_2D_fine.msh"},
 ]
 
 for cfg in mesh_configs:

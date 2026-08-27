@@ -97,7 +97,7 @@ gmsh.model.mesh.field.setNumber(threshold, "DistMax", 0.30)        # Transition 
 gmsh.model.mesh.field.setAsBackgroundMesh(threshold)
 
 gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
-gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 36)
+gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
 
 # ==============================================================================
