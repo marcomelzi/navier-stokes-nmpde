@@ -5,6 +5,12 @@
 
 using namespace dealii;
 
+enum class InflowRegime
+{
+    Steady,
+    Unsteady
+};
+
 // Class implementing a solver for the Navier-Stokes problem.
 // Dealing the problem with template in order to have dim = 2 or dim = 3
 template <unsigned int dim>
@@ -19,26 +25,59 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
     // three components, however, we may get an error message due to this function
     // being incompatible with the finite element space.
 
-    // create enum (?)
     class InletVelocity : public Function<dim>
     {
     public:
-        InletVelocity()
-            : Function<dim>(dim + 1)
+        InletVelocity(const InflowRegime regime_ = InflowRegime::Steady, const double peak_velocity_)
+            : Function<dim>(dim + 1), regime(regime_), peak_velocity(peak_velocity_)
         {
         }
 
         virtual void
         vector_value(const Point<dim> &p, Vector<double> &values) const override
         {
+            values[0] = inflow_profile(p);
+            for (unsigned int i = 1; i < dim; ++i)
+            {
+                values[i] = 0.0;
+            }
         }
 
         virtual double
         value(const Point<dim> &p, const unsigned int component = 0) const override
         {
+            if (component == 0)
+            {
+                return inflow_profile(p);
+            }
+            else
+            {
+                return 0.0;
+            }
+        }
+
+        double getMeanVelocity() const
+        {
+            const double mean_coefficient = (dim == 2) ? (2.0 / 3.0) : (4.0 / 9.0);
+            return mean_coefficient * peak_velocity * /* temporal */;
         }
 
     protected:
+        double inflow_profile(const Point<dim> &p) const
+        {
+            if constexpr (dim == 2)
+            {
+                return 4. * peak_velocity * p[1] * (channel_height - p[1]) / (channel_height * channel_height);
+            }
+            else
+            {
+                return 16. * peak_velocity * p[1] * p[2] * (channel_heigth - p[1]) * (channel_height - p[2]) /
+                       (channel_height * channel_height * channel_height * channel_height);
+            }
+        }
+        const double peak_velocity;
+        const InflowRegime regime;
+        const double height_channel = 0.41;
     };
 
     // Since we're working with block matrices, we need to make our own
@@ -50,15 +89,18 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
                  const unsigned int &degree_velocity_,
                  const unsigned int &degree_pressure_,
                  const double &final_time_,
-                 const double &time_step_size_)
+                 const double &time_step_size_,
+                 const double &peak_velocity,
+                 const InflowRegime regime_ = InflowRegime::Steady)
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
           mpi_rank(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)),
           pcout(std::cout, mpi_rank == 0),
           mesh_file_name(mesh_file_name_),
-          degree_velocity(degree_velocity_), // velocity space
-          degree_pressure(degree_pressure_), // pressure space
-          final_time(final_time_)
-              time_step_size(time_step_size_),
+          degree_velocity(degree_velocity_),
+          degree_pressure(degree_pressure_),
+          final_time(final_time_),
+          time_step_size(time_step_size_),
+          inlet_velocity(regime_, peak_velocity_),
           mesh(MPI_COMM_WORLD)
     {
     }
