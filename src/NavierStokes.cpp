@@ -1,6 +1,8 @@
 #include "../include/NavierStokes.hpp"
 
-void Stokes::setup()
+// setup ()
+template <unsigned int dim>
+void NavierStokes::setup()
 {
     // Create the mesh.
     {
@@ -70,8 +72,7 @@ void Stokes::setup()
         DoFRenumbering::component_wise(dof_handler, block_component);
 
         locally_owned_dofs = dof_handler.locally_owned_dofs();
-        locally_relevant_dofs =
-            DoFTools::extract_locally_relevant_dofs(dof_handler);
+        locally_relevant_dofs = DoFTools::extract_locally_relevant_dofs(dof_handler);
 
         // Besides the locally owned and locally relevant indices for the whole
         // system (velocity and pressure), we will also need those for the
@@ -145,6 +146,9 @@ void Stokes::setup()
 
         pcout << "  Initializing the matrices" << std::endl;
         system_matrix.reinit(sparsity);
+        mass_matrix.reinit(sparsity);
+        convection_matrix.reinit(sparsity);
+        stiffness_matrix.reinit(sparsity);
         pressure_mass.reinit(sparsity_pressure_mass);
 
         pcout << "  Initializing the system right-hand side" << std::endl;
@@ -345,7 +349,7 @@ void Stokes::output()
 
     data_out.build_patches();
 
-    const std::string output_file_name = "output-stokes";
+    const std::string output_file_name = "output-Stokes";
     data_out.write_vtu_with_pvtu_record("./",
                                         output_file_name,
                                         0,

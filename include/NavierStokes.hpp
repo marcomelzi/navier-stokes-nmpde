@@ -162,6 +162,15 @@ protected:
     // System matrix.
     TrilinosWrappers::BlockSparseMatrix system_matrix;
 
+    // Mass matrix
+    TrilinosWrappers::BlockSparseMatrix mass_matrix;
+
+    // Stifness matrix
+    TrilinosWrappers::BlockSparseMatrix stifness_matrix;
+
+    // Convection matrix
+    TrilinosWrappers::BlockSparseMatrix convection_matrix;
+
     // Pressure mass matrix, needed for preconditioning. We use a block matrix for
     // convenience, but in practice we only look at the pressure-pressure block.
     TrilinosWrappers::BlockSparseMatrix pressure_mass;
