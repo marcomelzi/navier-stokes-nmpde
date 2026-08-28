@@ -2,7 +2,7 @@
 
 // setup ()
 template <unsigned int dim>
-void NavierStokes::setup()
+void NavierStokes<dim>::setup()
 {
     // Create the mesh.
     {
@@ -159,7 +159,8 @@ void NavierStokes::setup()
     }
 }
 
-void Stokes::assemble()
+template <unsigned int dim>
+void NavierStokes<dim>::assemble(const double &time)
 {
     pcout << "===============================================" << std::endl;
     pcout << "Assembling the system" << std::endl;
@@ -178,17 +179,30 @@ void Stokes::assemble()
                                          update_JxW_values);
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> call_mass_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> cell_convection_matrix(dofs_per_cell, dofs_per_cell);
     FullMatrix<double> cell_pressure_mass_matrix(dofs_per_cell, dofs_per_cell);
     Vector<double> cell_rhs(dofs_per_cell);
 
     std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
 
     system_matrix = 0.0;
+    mass_matrix = 0.0;
+    stiffness_matrix = 0.0;
+    convection_matrix = 0.0;
     system_rhs = 0.0;
     pressure_mass = 0.0;
 
     FEValuesExtractors::Vector velocity(0);
     FEValuesExtractors::Scalar pressure(dim);
+
+    // Store the current velocity value
+    std::vector<Tensor<1, dim>> current_velocity_values(n_q);
+    // Store the current velocity gradient value
+    std::vector<Tensor<2, dim>> current_velocity_gradients(n_q);
+    // Store the current velocity divergence value
+    std::vector<double> current_velocity_divergence(n_q);
 
     for (const auto &cell : dof_handler.active_cell_iterators())
     {
@@ -198,91 +212,101 @@ void Stokes::assemble()
         fe_values.reinit(cell);
 
         cell_matrix = 0.0;
+        cell_mass_matrix = 0.0;
+        cell_stiffness_matrix = 0.0;
+        cell_convection_matrix = 0.0;
         cell_rhs = 0.0;
         cell_pressure_mass_matrix = 0.0;
 
+        // Retrieve the current solution values.
+        fe_values[velocity].get_function_values(solution, current_velocity_values);
+        // Retrieve the current solution gradient values
+        fe_values[velocity].get_function_gradients(solution, current_velocity_gradients);
+        // Retrieve the current solution divergence values
+        fe_values[velocity].get_function_divergences(solution, current_velocity_divergence);
+
         for (unsigned int q = 0; q < n_q; ++q)
         {
+            Vector<double> forcing_term_loc(dim);
+            forcing_term.vector_value(fe_values.quadrature_point(q), forcing_term_loc);
+
+            Tensor<1, dim> forcing_term_tensor;
+
+            for (unsigned int i = 0; i < dim; ++i)
+            {
+                forcing_term_tensor[i] = forcing_term_loc[i];
+            }
+
             for (unsigned int i = 0; i < dofs_per_cell; ++i)
             {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
                 {
-                    // Viscosity term.
-                    cell_matrix(i, j) +=
-                        nu *
-                        scalar_product(fe_values[velocity].gradient(i, q),
-                                       fe_values[velocity].gradient(j, q)) *
-                        fe_values.JxW(q);
+                    // Viscosity term
+                    cell_stiffness_matrix(i, j) += kinematic_viscosity * scalar_product(fe_values[velocity].gradient(i, q), fe_values[velocity].gradient(j, q)) * fe_values.JxW(q);
+
+                    // Time derivative discretization.
+                    cell_mass_matrix(i, j) += scalar_product(fe_values[velocity].value(i, q), fe_values[velocity].value(j, q)) / time_step_size * fe_values.JxW(q);
+
+                    // Convective term
+                    cell_convection_matrix(i, j) += scalar_product(fe_values[velocity].gradient(j, q) * current_velocity_values[q], fe_values[velocity].value(i, q)) * fe_values.JxW(q);
+
+                    // Temam Stabilization term
+                    cell_convection_matrix(i, j) += 0.5 * current_velocity_divergence[q] * scalar_product(fe_values[velocity].value(i, q), fe_values[velocity].value(j, q)) * fe_values.JxW(q);
 
                     // Pressure term in the momentum equation.
-                    cell_matrix(i, j) -= fe_values[velocity].divergence(i, q) *
-                                         fe_values[pressure].value(j, q) *
-                                         fe_values.JxW(q);
+                    cell_matrix(i, j) -= fe_values[pressure].value(j, q) * fe_values[velocity].divergence(i, q) * fe_values.JxW(q);
 
                     // Pressure term in the continuity equation.
-                    cell_matrix(i, j) -= fe_values[velocity].divergence(j, q) *
-                                         fe_values[pressure].value(i, q) *
-                                         fe_values.JxW(q);
+                    cell_matrix(i, j) += fe_values[pressure].value(i, q) * fe_values[velocity].divergence(j, q) * fe_values.JxW(q);
 
                     // Pressure mass matrix.
-                    cell_pressure_mass_matrix(i, j) +=
-                        fe_values[pressure].value(i, q) *
-                        fe_values[pressure].value(j, q) / nu * fe_values.JxW(q);
+                    cell_pressure_mass_matrix(i, j) += fe_values[pressure].value(i, q) * fe_values[pressure].value(j, q) / kinematic_viscosity * fe_values.JxW(q);
                 }
 
-                // There is no forcing term.
+                // Time derivative on the right hand side
+                cell_rhs(i) += scalar_product(current_velocity_values[q], fe_values[velocity].value(i, q)) * fe_values.JxW(q) / time_step_size;
             }
         }
 
-        // Boundary integral for Neumann BCs.
-        if (cell->at_boundary())
-        {
-            for (unsigned int f = 0; f < cell->n_faces(); ++f)
-            {
-                if (cell->face(f)->at_boundary() &&
-                    (cell->face(f)->boundary_id() == 1))
-                {
-                    fe_face_values.reinit(cell, f);
-
-                    for (unsigned int q = 0; q < n_q_face; ++q)
-                    {
-                        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-                        {
-                            cell_rhs(i) +=
-                                -p_out *
-                                scalar_product(fe_face_values.normal_vector(q),
-                                               fe_face_values[velocity].value(i,
-                                                                              q)) *
-                                fe_face_values.JxW(q);
-                        }
-                    }
-                }
-            }
-        }
+        // Boundary integral for Neumann BCs absent
 
         cell->get_dof_indices(dof_indices);
 
         system_matrix.add(dof_indices, cell_matrix);
+        mass_matrix.add(dof_indices, cell_mass_matrix);
+        convection_matrix.add(dof_indices, cell_convection_matrix);
+        stiffness_matrix.add(dof_indices, cell_stiffness_matrix);
         system_rhs.add(dof_indices, cell_rhs);
         pressure_mass.add(dof_indices, cell_pressure_mass_matrix);
     }
 
     system_matrix.compress(VectorOperation::add);
+    mass_matrix.compress(VectorOperation::add);
+    convection_matrix.compress(VectorOperation::add);
+    stiffness_matrix.compress(VectorOperation::add);
     system_rhs.compress(VectorOperation::add);
     pressure_mass.compress(VectorOperation::add);
+
+    // Create the System Matrix M + A + C(u_n) + B
+    system_matrix.add(1., mass_matrix);
+    system_matrix.add(1., convection_matrix);
+    system_matrix.add(1., stiffness_matrix);
 
     // Dirichlet boundary conditions.
     {
         std::map<types::global_dof_index, double> boundary_values;
         std::map<types::boundary_id, const Function<dim> *> boundary_functions;
 
-        ComponentMask mask_velocity(dim + 1, true);
-        mask_velocity.set(dim, false);
+        // velocity only component + mask
+        std::vector<bool> velocity_mask_vec(dim + 1, true);
+        velocity_mask_vec[dim] = false;
+        const ComponentMask mask_velocity(velocity_mask_vec);
 
         // We interpolate first the inlet velocity condition alone, then the wall
         // condition alone, so that the latter "win" over the former where the two
         // boundaries touch.
-        boundary_functions[0] = &inlet_velocity;
+        inlet_velocity.set_time(time);
+        boundary_functions[id_inlet] = &inlet_velocity;
         VectorTools::interpolate_boundary_values(dof_handler,
                                                  boundary_functions,
                                                  boundary_values,
@@ -290,14 +314,16 @@ void Stokes::assemble()
 
         boundary_functions.clear();
         Functions::ZeroFunction<dim> zero_function(dim + 1);
-        boundary_functions[1] = &zero_function;
+
+        boundary_functions[id_walls] = &zero_function;
+        boundary_functions[id_obstacle] = &zero_function;
+
         VectorTools::interpolate_boundary_values(dof_handler,
                                                  boundary_functions,
                                                  boundary_values,
                                                  mask_velocity);
 
-        MatrixTools::apply_boundary_values(
-            boundary_values, system_matrix, solution_owned, system_rhs, false);
+        MatrixTools::apply_boundary_values(boundary_values, system_matrix, solution_owned, system_rhs, false);
     }
 }
 

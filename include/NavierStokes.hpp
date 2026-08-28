@@ -16,14 +16,15 @@ enum class InflowRegime
 template <unsigned int dim>
 class NavierStokes
 {
-static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for 2D and 3D case") public :
 
-    // Function for inlet velocity. This actually returns an object with four
-    // components (one for each velocity component, and one for the pressure), but
-    // then only the first three are really used (see the component mask when
-    // applying boundary conditions at the end of assembly). If we only return
-    // three components, however, we may get an error message due to this function
-    // being incompatible with the finite element space.
+static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for 2D and 3D case")
+
+    public :
+
+    static constexpr types::boundary_id id_inlet = 1;
+    static constexpr types::boundary_id id_outlet = 2;
+    static constexpr types::boundary_id id_walls = 3;
+    static constexpr types::boundary_id id_obstacle = 4;
 
     class InletVelocity : public Function<dim>
     {
@@ -93,10 +94,6 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
         const double height_channel = 0.41;
     };
 
-    // Since we're working with block matrices, we need to make our own
-    // preconditioner class. A preconditioner class can be any class that exposes
-    // a vmult method that applies the inverse of the preconditioner.
-
     // Constructor.
     NavierStokes(const std::string &mesh_file_name_,
                  const unsigned int &degree_velocity_,
@@ -122,10 +119,9 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
     void
     setup();
 
-    // Assemble system. We also assemble the pressure mass matrix (needed for the
-    // preconditioner).
+    // Assemble system.
     void
-    assemble();
+    assemble(const double &time);
 
     // Solve system.
     void
