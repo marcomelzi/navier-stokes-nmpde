@@ -59,19 +59,32 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
         double getMeanVelocity() const
         {
             const double mean_coefficient = (dim == 2) ? (2.0 / 3.0) : (4.0 / 9.0);
-            return mean_coefficient * peak_velocity * /* temporal */;
+            return mean_coefficient * peak_velocity * temporal_envelope(this->get_time());
         }
 
     protected:
+        double temporal_envelope(double time) const
+        {
+            switch (regime)
+            {
+            case InflowRegime::Steady:
+                return 1.;
+            case InflowRegime::Unsteady:
+                return std::sin(M_PI * time / 8.0);
+            }
+        }
+
         double inflow_profile(const Point<dim> &p) const
         {
+            const double time_component = temporal_envelope(this->get_time());
+
             if constexpr (dim == 2)
             {
-                return 4. * peak_velocity * p[1] * (channel_height - p[1]) / (channel_height * channel_height);
+                return 4. * peak_velocity * p[1] * (channel_height - p[1]) * time_component / (channel_height * channel_height);
             }
             else
             {
-                return 16. * peak_velocity * p[1] * p[2] * (channel_heigth - p[1]) * (channel_height - p[2]) /
+                return 16. * peak_velocity * p[1] * p[2] * (channel_heigth - p[1]) * (channel_height - p[2]) * time_component /
                        (channel_height * channel_height * channel_height * channel_height);
             }
         }
