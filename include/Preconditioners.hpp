@@ -30,10 +30,6 @@
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include <fstream>
-#include <iostream>
-#include <functional>
-
 using namespace dealii;
 
 // Identity preconditioner.

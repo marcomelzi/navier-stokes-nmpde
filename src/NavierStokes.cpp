@@ -327,6 +327,127 @@ void NavierStokes<dim>::assemble(const double &time)
     }
 }
 
+template <unsigned int dim>
+void NavierStokes<dim>::assemble_time_step(const double &time)
+{
+    pcout << "===============================================" << std::endl;
+    pcout << "Assembling the system" << std::endl;
+
+    const unsigned int dofs_per_cell = fe->dofs_per_cell;
+    const unsigned int n_q = quadrature->size();
+
+    FEValues<dim> fe_values(*fe,
+                            *quadrature,
+                            update_values | update_gradients |
+                                update_quadrature_points | update_JxW_values);
+
+    FullMatrix<double> cell_convection_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
+    Vector<double> cell_rhs(dofs_per_cell);
+
+    std::vector<types::global_dof_index> dof_indices(dofs_per_cell);
+
+    system_matrix.add(-1., convection_matrix);
+
+    convection_matrix = 0.0;
+    system_rhs = 0.0;
+
+    FEValuesExtractors::Vector velocity(0);
+    FEValuesExtractors::Scalar pressure(dim);
+
+    // Current velocity
+    std::vector<Tensor<1, dim>> current_velocity_values(n_q);
+    // Current velocity gradient
+    std::vector<Tensor<2, dim>> current_velocity_gradients(n_q);
+    // Current velocity divergence
+    std::vector<double> current_velocity_divergence(n_q);
+
+    // Previous velocity
+    std::vector<Tensor<1, dim>> previous_velocity_values(n_q);
+    // Previous velocity gradient
+    std::vector<Tensor<2, dim>> previous_velocity_gradients(n_q);
+    // Previous velocity divergence
+    std::vector<double> previous_velocity_divergence(n_q);
+    // Previous divergence values
+    std::vector<double> previous_divergence_values(n_q);
+
+    for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned())
+            continue;
+
+        fe_values.reinit(cell);
+
+        cell_mass_matrix = 0.0;
+        cell_convection_matrix = 0.0;
+        cell_rhs = 0.0;
+
+        // current
+        fe_values[velocity].get_function_values(solution, current_velocity_values);
+        fe_values[velocity].get_function_gradients(solution, current_velocity_gradients);
+        fe_values[velocity].get_function_divergences(solution, current_velocity_divergence);
+
+        // previous
+        fe_values[velocity].get_function_values(previous_solution, previous_velocity_values);
+        fe_values[velocity].get_function_divergences(previous_solution, previous_divergence_values);
+
+        for (unsigned int q = 0; q < n_q; ++q)
+        {
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                {
+                    // Convective term
+                    cell_convection_matrix(i, j) += scalar_product(fe_values[velocity].gradient(j, q) * current_velocity_values[q], fe_values[velocity].value(i, q)) * fe_values.JxW(q);
+                }
+                // Time derivative discretization on the right hand side - Backward Euler
+                cell_rhs(i) += scalar_product(current_velocity_values[q], fe_values[velocity].value(i, q)) * fe_values.JxW(q) / time_step_size;
+            }
+        }
+
+        cell->get_dof_indices(dof_indices);
+        convection_matrix.add(dof_indices, cell_convection_matrix);
+        system_rhs.add(dof_indices, cell_rhs);
+    }
+
+    convection_matrix.compress(VectorOperation::add);
+    system_rhs.compress(VectorOperation::add);
+    pressure_mass.compress(VectorOperation::add);
+    system_matrix.add(1., convection_matrix);
+
+    // Apply Dirichlet boundary conditions.
+    {
+        std::map<types::global_dof_index, double> boundary_values;
+        std::map<types::boundary_id, const Function<dim> *> boundary_functions;
+
+        std::vector<bool> velocity_mask_vec(dim + 1, true);
+        velocity_mask_vec[dim] = false;
+        const ComponentMask velocity_mask(velocity_mask_vec);
+
+        // Inlet
+        inlet_velocity.set_time(time);
+        boundary_functions[id_inlet] = &inlet_velocity;
+        VectorTools::interpolate_boundary_values(dof_handler,
+                                                 boundary_functions,
+                                                 boundary_values,
+                                                 velocity_mask);
+
+        // No overlap
+        boundary_functions.clear();
+        Functions::ZeroFunction<dim> zero_function(dim + 1);
+
+        // Walls and the Obstacle.
+        boundary_functions[id_walls] = &zero_function;
+        boundary_functions[id_obstacle] = &zero_function;
+        VectorTools::interpolate_boundary_values(dof_handler,
+                                                 boundary_functions,
+                                                 boundary_values,
+                                                 velocity_mask);
+
+        MatrixTools::apply_boundary_values(boundary_values, system_matrix, solution, system_rhs, false);
+    }
+}
+
 void Stokes::solve()
 {
     pcout << "===============================================" << std::endl;

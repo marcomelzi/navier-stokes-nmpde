@@ -1,6 +1,10 @@
 #ifndef NAVIER_STOKES_HPP
 #define NAVIER_STOKES_HPP
 
+#include <fstream>
+#include <filesystem>
+#include <iostream>
+
 #include "./Preconditioners.hpp"
 
 using namespace dealii;

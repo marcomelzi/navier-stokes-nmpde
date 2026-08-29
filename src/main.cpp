@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(mpi_comm, &size);
 
     int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(mpi_comm, &rank);
 
     // Mesh File
     const std::string mesh_file_name = "../mesh/Navier_Stokes_2D_coarse.msh";
