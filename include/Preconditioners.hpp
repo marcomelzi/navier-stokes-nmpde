@@ -1,36 +1,42 @@
 #ifndef PRECONDITIONERS_HPP
 #define PRECONDITIONERS_HPP
 
-#include <deal.II/base/conditional_ostream.h>
-#include <deal.II/base/quadrature_lib.h>
-
-#include <deal.II/distributed/fully_distributed_tria.h>
-
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_renumbering.h>
-#include <deal.II/dofs/dof_tools.h>
-
-#include <deal.II/fe/fe_simplex_p.h>
-#include <deal.II/fe/fe_system.h>
-#include <deal.II/fe/fe_values.h>
-#include <deal.II/fe/fe_values_extractors.h>
-#include <deal.II/fe/mapping_fe.h>
-
-#include <deal.II/grid/grid_in.h>
-#include <deal.II/grid/grid_tools.h>
-
-#include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/solver_gmres.h>
-#include <deal.II/lac/trilinos_block_sparse_matrix.h>
-#include <deal.II/lac/trilinos_parallel_block_vector.h>
-#include <deal.II/lac/trilinos_precondition.h>
-#include <deal.II/lac/trilinos_sparse_matrix.h>
-
-#include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/matrix_tools.h>
-#include <deal.II/numerics/vector_tools.h>
+#include "./IncludesFiles.hpp"
 
 using namespace dealii;
+
+// ==================================================================
+// Preconditioners for the unsteady Navier-Stokes saddle point system
+//
+//     A = ( F   B^T )   x = ( U )   b = ( G )
+//         ( -B   0  )       ( P )       ( 0 )
+//
+// as presented inside the paper "Parallel preconditioners for the
+// unsteady Navier-Stokes equations and applications to hemodynamics
+// simulations"
+//
+// Preconditioners implemented:
+//   - PreconditionSIMPLE
+//   - PreconditionYosida
+//   - PreconditionBlockTriangular
+//
+// Naming convention for block matrices:
+//   F    -> F
+//   negB -> -B
+//   B_t  -> B^T
+//
+//
+// Lifetime note: the classes below store raw pointers to the external
+// matrices passed to initialize(). The caller must guarantee those
+// matrices stay alive (and are not reallocated) for as long as the
+// preconditioner is used - this matters here because, per the paper,
+// A and its blocks are rebuilt at every timestep.
+// =================================================================
+
+
+// Block-diagonal preconditioner. Its an abstract base class for block preconditioners
+// It provides a shared helper to initialize inner solver
+
 
 // Identity preconditioner.
 class PreconditionIdentity
@@ -48,7 +54,7 @@ public:
 protected:
 };
 
-// Block-diagonal preconditioner.
+
 class PreconditionBlockDiagonal
 {
 public:
@@ -168,6 +174,223 @@ protected:
 
     // Temporary vector.
     mutable TrilinosWrappers::MPI::Vector tmp;
+};
+
+
+// ==================================================================
+// Physical Preconditioners for the unsteady Navier-Stokes
+// (SIMPLE and Yosida implementations)
+// =================================================================
+
+class BlockPrecondition
+{
+public:
+    virtual ~BlockPrecondition() = default;
+    virtual void vmult(TrilinosWrappers::MPI::BlockVector &dst, const TrilinosWrappers::MPI::BlockVector &src) const = 0;
+
+protected:
+    void initialize_inner_preconditioner(
+        std::shared_ptr<TrilinosWrappers::PreconditionBase> &preconditioner,
+        const TrilinosWrappers::SparseMatrix &matrix, bool ilu)
+    {
+        if (ilu)
+        {
+            std::shared_ptr<TrilinosWrappers::PreconditionILU> actual_preconditioner =
+                std::make_shared<TrilinosWrappers::PreconditionILU>();
+            actual_preconditioner->initialize(matrix);
+            preconditioner = actual_preconditioner;
+        }
+        else
+        {
+            std::shared_ptr<TrilinosWrappers::PreconditionAMG> actual_preconditioner =
+                std::make_shared<TrilinosWrappers::PreconditionAMG>();
+            actual_preconditioner->initialize(matrix);
+            preconditioner = actual_preconditioner;
+        }
+    }
+};
+
+// ---------------------------------------------------------------
+// Class: PreconditionSIMPLE
+//
+//   P_SIMPLE = ( F      0    ) ( I   D^-1 B^T )
+//              ( B  -S_tilde ) ( 0   alpha I  ),
+//
+// S_tilde = B D^-1 B^T
+// D = diag(F)
+// alpha: (0, 1]
+//
+// F^-1 and S_tilde^-1 are applied via inner GMRES solves
+// ---------------------------------------------------------------
+/**
+ * \brief
+ *
+ * The Semi-Implicit Method for Pressure Linked Equations (SIMPLE) is
+ * an iterative method which first solves the momentum equation and then
+ * updates the pressure field and the velocity field to conserve the mass
+ * by using the continuity equation.
+ * The method can be reinterpreted as if it were associated to the
+ * previously introduced preconditioner.
+ */
+
+class PreconditionSIMPLE : public BlockPrecondition
+{
+public:
+    void initialize(const TrilinosWrappers::SparseMatrix &F_,
+                    const TrilinosWrappers::SparseMatrix &negB_,
+                    const TrilinosWrappers::SparseMatrix &B_t_,
+                    const TrilinosWrappers::MPI::BlockVector &vec,
+                    const double &alpha_,
+                    const unsigned int &maxit_,
+                    const double &tol_,
+                    const bool &ilu)
+    {
+        F = &F_;
+        negB = &negB_;
+        B_t = &B_t_;
+
+        alpha = alpha_;
+        maxit = maxit_;
+        tol = tol_;
+
+        negDinv.reinit(vec.block(0));
+        for (unsigned int index : negDinv.locally_owned_elements())
+        {
+            negDinv[index] = -1.0 / F->diag_element(index);
+        }
+
+        negB->mmult(S, *B_t, negDinv);
+
+        this->initialize_inner_preconditioner(preconditioner_F, *F, ilu);
+        this->initialize_inner_preconditioner(preconditioner_S, S, ilu);
+    }
+
+    void vmult(TrilinosWrappers::MPI::BlockVector &dst, const TrilinosWrappers::MPI::BlockVector &src) const override
+    {
+        tmp.reinit(src);
+
+        // F * sol1_u = src_u
+        SolverControl solver_control_F(maxit, tol * src.block(0).l2_norm());
+        SolverGMRES<TrilinosWrappers::MPI::Vector> solver_F(solver_control_F);
+        solver_F.solve(*F, tmp.block(0), src.block(0), *preconditioner_F);
+
+        // S * sol1_p = B * sol1_u - src_p
+        B_t->Tvmult(tmp.block(1), tmp.block(0));
+        tmp.block(1) -= src.block(1);
+
+        SolverControl solver_control_S(maxit, tol * tmp.block(1).l2_norm());
+        SolverGMRES<TrilinosWrappers::MPI::Vector> solver_S(solver_control_S);
+        solver_S.solve(S, dst.block(1), tmp.block(1), *preconditioner_S);
+
+        // Correct pressure
+        dst.block(1) /= alpha;
+
+        // Correct velocity  (dst_u = sol1_u - D^-1 * B^T * dst_p)
+        dst.block(0) = tmp.block(0);
+        B_t->vmult(tmp.block(0), dst.block(1));
+        tmp.block(0).scale(negDinv);
+        dst.block(0) += tmp.block(0);
+    }
+
+protected:
+    double alpha;
+    const TrilinosWrappers::SparseMatrix *F;
+    const TrilinosWrappers::SparseMatrix *negB;
+    const TrilinosWrappers::SparseMatrix *B_t;
+    TrilinosWrappers::MPI::Vector negDinv;
+    TrilinosWrappers::SparseMatrix S;
+    std::shared_ptr<TrilinosWrappers::PreconditionBase> preconditioner_F;
+    std::shared_ptr<TrilinosWrappers::PreconditionBase> preconditioner_S;
+    mutable TrilinosWrappers::MPI::BlockVector tmp;
+    unsigned int maxit;
+    double tol;
+};
+
+// ---------------------------------------------------------------
+// Class: PreconditionYosida
+//
+//   A = ( F  0 ) ( I  F^-1 B^T )
+//       ( B  S ) ( 0     I     ),
+//
+// S ~ Dt * B * M_u^-1 * B^T is the Schur complement approximated
+// M_u_matrix_ is the velocity mass matrix
+// ---------------------------------------------------------------
+class PreconditionYosida : public BlockPrecondition
+{
+public:
+    void initialize(const TrilinosWrappers::SparseMatrix &F_,
+                    const TrilinosWrappers::SparseMatrix &negB_,
+                    const TrilinosWrappers::SparseMatrix &B_t_,
+                    const TrilinosWrappers::SparseMatrix &M_u_,
+                    const TrilinosWrappers::MPI::BlockVector &vec,
+                    const double &dt_,
+                    const unsigned int &maxit_,
+                    const double &tol_,
+                    const bool &ilu)
+    {
+        F = &F_;
+        negB = &negB_;
+        B_t = &B_t_;
+
+        maxit = maxit_;
+        tol = tol_;
+        dt = dt_;
+
+        Dinv.reinit(vec.block(0));
+        for (unsigned int index : Dinv.locally_owned_elements())
+        {
+            // scaling vector = dt / diag(M_u)
+            Dinv[index] = dt / M_u_.diag_element(index);
+        }
+
+        negB->mmult(negS, *B_t, Dinv);
+
+        this->initialize_inner_preconditioner(preconditioner_F, *F, ilu);
+        this->initialize_inner_preconditioner(preconditioner_S, negS, ilu);
+    }
+
+    void vmult(TrilinosWrappers::MPI::BlockVector &dst, const TrilinosWrappers::MPI::BlockVector &src) const override
+    {
+        tmp1.reinit(src);
+
+        // F * sol1_u = src_u
+        SolverControl solver_control_F(maxit, tol * src.block(0).l2_norm());
+        SolverGMRES<TrilinosWrappers::MPI::Vector> solver_F(solver_control_F);
+        solver_F.solve(*F, tmp1.block(0), src.block(0), *preconditioner_F);
+
+        // -S * sol1_p = src_p - B * sol1_u
+        tmp1.block(1) = src.block(1);
+        negB->vmult_add(tmp1.block(1), tmp1.block(0));
+
+        SolverControl solver_control_S(maxit, tol * tmp1.block(1).l2_norm());
+        SolverGMRES<TrilinosWrappers::MPI::Vector> solver_S(solver_control_S);
+        solver_S.solve(negS, dst.block(1), tmp1.block(1), *preconditioner_S);
+
+        // [I, F^-1 * B^T; 0, I] * dst = sol1
+        dst.block(0) = tmp1.block(0);
+        B_t->vmult(tmp1.block(0), dst.block(1));
+
+        tmp2.reinit(src.block(0));
+        SolverControl solver_control_F2(maxit, tol * tmp1.block(0).l2_norm());
+        SolverGMRES<TrilinosWrappers::MPI::Vector> solver_gmres_F2(solver_control_F2);
+        solver_gmres_F2.solve(*F, tmp2, tmp1.block(0), *preconditioner_F);
+
+        dst.block(0) -= tmp2;
+    }
+
+protected:
+    const TrilinosWrappers::SparseMatrix *F;
+    const TrilinosWrappers::SparseMatrix *negB;
+    const TrilinosWrappers::SparseMatrix *B_t;
+    TrilinosWrappers::MPI::Vector Dinv;
+    TrilinosWrappers::SparseMatrix negS;
+    std::shared_ptr<TrilinosWrappers::PreconditionBase> preconditioner_F;
+    std::shared_ptr<TrilinosWrappers::PreconditionBase> preconditioner_S;
+    mutable TrilinosWrappers::MPI::BlockVector tmp1;
+    mutable TrilinosWrappers::MPI::Vector tmp2;
+    unsigned int maxit;
+    double dt;
+    double tol;
 };
 
 #endif
