@@ -33,7 +33,7 @@ public:
     class InletVelocity : public Function<dim>
     {
     public:
-        InletVelocity(const InflowRegime regime_ = InflowRegime::Steady, const double peak_velocity_)
+        InletVelocity(const InflowRegime regime_ = InflowRegime::Steady, const double peak_velocity_ = 1.5)
             : Function<dim>(dim + 1), regime(regime_), peak_velocity(peak_velocity_)
         {
         }
@@ -95,7 +95,7 @@ public:
         }
         const double peak_velocity;
         const InflowRegime regime;
-        const double height_channel = 0.41;
+        const double channel_height = 0.41;
     };
 
     // Constructor.
@@ -104,7 +104,7 @@ public:
                  const unsigned int &degree_pressure_,
                  const double &final_time_,
                  const double &time_step_size_,
-                 const double &peak_velocity,
+                 const double &peak_velocity_,
                  const InflowRegime regime_ = InflowRegime::Steady,
                  const Preconditioner preconditioner_ = Preconditioner::YOSIDA)
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
@@ -161,7 +161,7 @@ protected:
     InletVelocity inlet_velocity;
 
     // Forcing term
-    Functions::ZeroFunction<dim> forcing term;
+    Functions::ZeroFunction<dim> forcing_term;
 
     // Final time
     const double final_time;
