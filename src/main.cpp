@@ -20,9 +20,25 @@ int main(int argc, char *argv[])
     const unsigned int degree_velocity = 2;
     const unsigned int degree_pressure = 1;
 
-    // Time variables
+    InflowRegime regime = InflowRegime::Unsteady;
+    Preconditioner preconditioner = Preconditioner::YOSIDA;
 
-    // Stokes problem(mesh_file_name, degree_velocity, degree_pressure);
+    // Time variables
+    const double T = 8.0;
+    const double dt = 0.002;
+
+    dealii::Timer timer;
+    timer.restart();
+
+    NavierStokes<2> problem(mesh_file_name, degree_velocity, degree_pressure, T, dt, regime, preconditioner);
+
+    problem.setup();
+    problem.run();
+
+    timer.stop();
+
+    if (rank == 0)
+        std::cout << "Time taken to solve Navier Stokes problem: " << timer.wall_time() << " seconds" << std::endl;
 
     return 0;
 }

@@ -166,20 +166,14 @@ void NavierStokes<dim>::assemble(const double &time)
     pcout << "Assembling the system" << std::endl;
 
     const unsigned int dofs_per_cell = fe->dofs_per_cell;
-    const unsigned int n_q = quadrature->size();
-    const unsigned int n_q_face = quadrature_face->size();
 
     FEValues<dim> fe_values(*fe,
                             *quadrature,
                             update_values | update_gradients |
                                 update_quadrature_points | update_JxW_values);
-    FEFaceValues<dim> fe_face_values(*fe,
-                                     *quadrature_face,
-                                     update_values | update_normal_vectors |
-                                         update_JxW_values);
 
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
-    FullMatrix<double> call_mass_matrix(dofs_per_cell, dofs_per_cell);
+    FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
     FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
     FullMatrix<double> cell_convection_matrix(dofs_per_cell, dofs_per_cell);
     FullMatrix<double> cell_pressure_mass_matrix(dofs_per_cell, dofs_per_cell);
@@ -448,32 +442,43 @@ void NavierStokes<dim>::assemble_time_step(const double &time)
     }
 }
 
-void Stokes::solve()
+template <unsigned int dim>
+void NavierStokes<dim>::solve_time_step(const Preconditioner &preconditioner)
 {
     pcout << "===============================================" << std::endl;
 
-    SolverControl solver_control(2000, 1e-6 * system_rhs.l2_norm());
+    SolverControl solver_control(100000, 1e-6, true);
 
     SolverGMRES<TrilinosWrappers::MPI::BlockVector> solver(solver_control);
 
-    PreconditionBlockDiagonal preconditioner;
-    preconditioner.initialize(system_matrix.block(0, 0),
-                              pressure_mass.block(1, 1));
+    // Preconditioners
+    {
+        switch (preconditioner)
+        {
+        case (Preconditioner::YOSIDA):
+            PreconditionYosida prec;
+            prec.initialize(system_matrix.block(0, 0), system_matrix.block(1, 0), system_matrix.block(0, 1), mass_matrix.block(0, 0), solution_owned);
+            solver.solve(system_matrix, solution_owned, system_rhs, prec);
+            break;
+        case (Preconditioner::SIMPLE):
+            PreconditionSIMPLE prec;
+            prec.initialize(system_matrix.block(0, 0), system_matrix.block(1, 0), system_matrix.block(0, 1), solution_owned);
+            solver.solve(system_matrix, solution_owned, system_rhs, prec);
+            break;
+            /*case (Preconditioner::BLOCK_TRIANGULAR):
+                PreconditionBlockTriangular prec;
+                prec.initialize(system_matrix.block(0, 0), system_matrix.block(1, 0), system_matrix.block(0, 1), mass_matrix.block(0, 0), solution_owned);
+                solver.solve(system_matrix, solution_owned, system_rhs, prec);
+                break;*/
+        }
+    }
 
-    /*PreconditionBlockTriangular preconditioner;
-    preconditioner.initialize(system_matrix.block(0, 0),
-                              pressure_mass.block(1, 1),
-                              system_matrix.block(1, 0));*/
-
-    pcout << "Solving the linear system" << std::endl;
-    solver.solve(system_matrix, solution_owned, system_rhs, preconditioner);
-    pcout << "  " << solver_control.last_step() << " GMRES iterations"
-          << std::endl;
-
+    pcout << "Result:  " << solver_control.last_step() << " GMRES iterations" << std::endl;
     solution = solution_owned;
 }
 
-void Stokes::output()
+template <unsigned int dim>
+void NavierStokes<dim>::output(const unsigned int &time)
 {
     pcout << "===============================================" << std::endl;
 
@@ -496,12 +501,62 @@ void Stokes::output()
 
     data_out.build_patches();
 
-    const std::string output_file_name = "output-Stokes";
-    data_out.write_vtu_with_pvtu_record("./",
+    const std::string output_file_name = "output-Navier-Stokes" + std::to_string(dim) + "d-";
+    data_out.write_vtu_with_pvtu_record("./output/",
                                         output_file_name,
-                                        0,
-                                        MPI_COMM_WORLD);
+                                        time,
+                                        MPI_COMM_WORLD,
+                                        numbers::invalid_unsigned_int,
+                                        1);
 
     pcout << "Output written to " << output_file_name << std::endl;
     pcout << "===============================================" << std::endl;
 }
+
+template <unsigned int dim>
+void NavierStokes<dim>::run()
+{
+    pcout << "===============================================" << std::endl;
+
+    // Apply the initial condition.
+    {
+        pcout << "Applying the initial condition" << std::endl;
+
+        VectorTools::interpolate(dof_handler, initial_solution_function, solution_owned);
+        solution = solution_owned;
+
+        // Output the initial solution.
+        output(0);
+        pcout << "===============================================" << std::endl;
+    }
+
+    unsigned int time_step = 0;
+    double time = 0;
+
+    const unsigned int total_steps = static_cast<unsigned int>(std::round(final_time / time_step_size));
+
+    while (time < final_time - 0.5 * time_step_size)
+    {
+
+        time += time_step_size;
+        ++time_step;
+        inlet_velocity.set_time(time);
+
+        pcout << "n = " << std::setw(3) << time_step << ", t = " << std::setw(5)
+              << time << ":" << std::flush;
+
+        if (time_step == 1)
+            assemble(time);
+        else
+            assemble_time_step(time);
+
+        solve_time_step(this.preconditioner);
+
+        if (time_step % 10 == 0)
+            output(time_step);
+    }
+};
+
+// Explicit instantiation
+template class NavierStokes<2>;
+template class NavierStokes<3>;

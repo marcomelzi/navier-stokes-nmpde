@@ -4,6 +4,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <functional>
 
 #include "./Preconditioners.hpp"
 
@@ -21,10 +22,9 @@ template <unsigned int dim>
 class NavierStokes
 {
 
-static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for 2D and 3D case")
+    static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for 2D and 3D case");
 
-    public :
-
+public:
     static constexpr types::boundary_id id_inlet = 1;
     static constexpr types::boundary_id id_outlet = 2;
     static constexpr types::boundary_id id_walls = 3;
@@ -105,7 +105,8 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
                  const double &final_time_,
                  const double &time_step_size_,
                  const double &peak_velocity,
-                 const InflowRegime regime_ = InflowRegime::Steady)
+                 const InflowRegime regime_ = InflowRegime::Steady,
+                 const Preconditioner preconditioner_ = Preconditioner::YOSIDA)
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
           mpi_rank(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)),
           pcout(std::cout, mpi_rank == 0),
@@ -115,6 +116,7 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
           final_time(final_time_),
           time_step_size(time_step_size_),
           inlet_velocity(regime_, peak_velocity_),
+          preconditioner(preconditioner_),
           mesh(MPI_COMM_WORLD)
     {
     }
@@ -123,19 +125,19 @@ static_assert(dim == 2 || dim == 3, "Navier Stokes has been implemented only for
     void
     setup();
 
-    // Assemble system.
-    void
-    assemble(const double &time);
-
     // Solve system.
     void
-    solve();
-
-    // Output results.
-    void
-    output();
+    run();
 
 protected:
+    void assemble(const double &time);
+
+    void assemble_time_step(const double &time);
+
+    void solve_time_step(const Preconditioner &preconditioner);
+
+    void output(const unsigned int &time);
+
     // MPI parallel. /////////////////////////////////////////////////////////////
 
     // Number of MPI processes.
@@ -175,6 +177,9 @@ protected:
     // Polynomial degree used for pressure.
     const unsigned int degree_pressure;
 
+    // Preconditioner adopted
+    Preconditioner preconditioner;
+
     // Time step
     const double time_step_size;
 
@@ -183,9 +188,6 @@ protected:
 
     // Dirichlet lifting function (g(x)).
     Functions::ZeroFunction<dim> dirichlet_lifting_function;
-
-    // Neumann data function (h(x)).
-    Functions::ZeroFunction<dim> neumann_data_function;
 
     // Mesh.
     parallel::fullydistributed::Triangulation<dim> mesh;

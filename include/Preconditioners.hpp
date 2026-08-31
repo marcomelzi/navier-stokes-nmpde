@@ -33,10 +33,18 @@ using namespace dealii;
 // A and its blocks are rebuilt at every timestep.
 // =================================================================
 
+enum class Preconditioner
+{
+    YOSIDA,
+    SIMPLE,
+    BLOCK_TRIANGULAR,
+    YOSIDA_APPROX,
+    SIMPLE_APPROX,
+    BLOCK_TRIANGULAR_APPROX
+};
 
 // Block-diagonal preconditioner. Its an abstract base class for block preconditioners
 // It provides a shared helper to initialize inner solver
-
 
 // Identity preconditioner.
 class PreconditionIdentity
@@ -53,7 +61,6 @@ public:
 
 protected:
 };
-
 
 class PreconditionBlockDiagonal
 {
@@ -175,7 +182,6 @@ protected:
     // Temporary vector.
     mutable TrilinosWrappers::MPI::Vector tmp;
 };
-
 
 // ==================================================================
 // Physical Preconditioners for the unsteady Navier-Stokes
