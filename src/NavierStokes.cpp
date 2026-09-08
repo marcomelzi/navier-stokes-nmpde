@@ -919,7 +919,7 @@ void NavierStokes<dim>::output(const unsigned int &time)
     // Write output to file
     const std::string output_file_name = "output-Navier-Stokes-" + std::to_string(dim) + "d";
     data_out.write_vtu_with_pvtu_record(
-        "./output/",                   // Output directory
+        output_dir,                   // Output directory
         output_file_name,              // Base filename
         time,                          // Time step index
         MPI_COMM_WORLD,                // MPI communicator
