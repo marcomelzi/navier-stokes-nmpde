@@ -16,7 +16,7 @@ Politecnico di Milano
 
 ## Prerequisites
 ### Deal.II
-The project is based on the finite element library [Deal.II](https://www.dealii.org/). To install it, follow the instructions on the [official website](https://www.dealii.org/current_release/download/).\
+The project is based on the finite element library [Deal.II](https://www.dealii.org/). To install it, follow the instructions on the [official website](https://www.dealii.org/current_release/download/).
 
 ### Gmsh
 The mesh is generated using the software [Gmsh](https://gmsh.info/). To install it, follow the instructions on the [official website](https://gmsh.info/).
@@ -81,4 +81,4 @@ mpirun ./navier-stokes <dim> <test_case>
 to execute it in parallel using MPI.
 
 ### Outputs
-During the execution a directory `output` is generated inside the build folder containing the result of the computation.
+During the execution the output is generated inside the output folder containing the result of the computation.
