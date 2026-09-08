@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <string>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 // Main function.
 int main(int argc, char *argv[])
@@ -22,12 +25,13 @@ int main(int argc, char *argv[])
     {
         if (rank == 0)
         {
-            std::cerr << "ERROR! Usage: " << argv[0] << " <dim> <test_case>" << std::endl;
+            std::cerr << "ERROR! Usage: " << argv[0] << " <config_file_path> <output_dir>" << std::endl;
         }
         return -1;
     }
 
-    std::string configFile = "../test/config_" + std::string(argv[1]) + "D" + std::string(argv[2]) + ".txt";
+    std::string configFile = argv[1];
+    std::string outputDir = argv[2];
 
     // Variables to store configuration parameters
     std::string mesh_file_name;
@@ -60,7 +64,7 @@ int main(int argc, char *argv[])
     {
         // 2D
         NavierStokes<2> problem(mesh_file_name, degree_velocity, degree_pressure,
-                                T, dt, peak_velocity, regime, preconditioner);
+                                T, dt, peak_velocity, regime, preconditioner, outputDir);
 
         problem.setup();
         problem.run();
@@ -72,7 +76,7 @@ int main(int argc, char *argv[])
             std::cout << "Time taken to solve Navier Stokes problem: "
                       << timer.wall_time() << " seconds" << std::endl;
 
-            const std::string output_filename = "results.csv";
+            const std::string output_filename = (fs::path(outputDir) / "results.csv").string();
 
             // --- Validate vector sizes ---
             const size_t num_iterations = problem.vec_drag_force.size();
@@ -127,7 +131,7 @@ int main(int argc, char *argv[])
     {
         // 3D
         NavierStokes<3> problem(mesh_file_name, degree_velocity, degree_pressure,
-                                T, dt, peak_velocity, regime, preconditioner);
+                                T, dt, peak_velocity, regime, preconditioner, outputDir);
 
         problem.setup();
         problem.run();
@@ -139,7 +143,7 @@ int main(int argc, char *argv[])
             std::cout << "Time taken to solve Navier Stokes problem: "
                       << timer.wall_time() << " seconds" << std::endl;
 
-            const std::string output_filename = "results.csv";
+            const std::string output_filename = (fs::path(outputDir) / "results.csv").string();
 
             // --- Validate vector sizes ---
             const size_t num_iterations = problem.vec_drag_force.size();

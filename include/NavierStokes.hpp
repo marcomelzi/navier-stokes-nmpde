@@ -281,7 +281,8 @@ public:
                  const double &time_step_size_,
                  const double &peak_velocity_,
                  const InflowRegime regime_ = InflowRegime::Steady,
-                 const Preconditioner preconditioner_ = Preconditioner::YOSIDA)
+                 const Preconditioner preconditioner_ = Preconditioner::YOSIDA,
+                const std::string &output_dir_)
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
           mpi_rank(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)),
           pcout(std::cout, mpi_rank == 0),
@@ -292,7 +293,8 @@ public:
           time_step_size(time_step_size_),
           inlet_velocity(regime_, peak_velocity_),
           preconditioner(preconditioner_),
-          mesh(MPI_COMM_WORLD)
+          mesh(MPI_COMM_WORLD),
+          output_dir(output_dir_)
     {
     }
 
@@ -521,6 +523,8 @@ protected:
      * The mesh is loaded from this file at the beginning of the simulation.
      */
     const std::string mesh_file_name;
+
+    const std::string output_dir;
 
     /**
      * @brief Polynomial degree for the velocity finite element space.
