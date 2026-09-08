@@ -81,7 +81,6 @@ int main(int argc, char *argv[])
             // --- Validate vector sizes ---
             const size_t num_iterations = problem.vec_drag_force.size();
             if (num_iterations == 0 ||
-                num_iterations != problem.vec_lift_force.size() ||
                 num_iterations != problem.vec_drag_coeff.size() ||
                 num_iterations != problem.vec_lift_coeff.size() ||
                 num_iterations != problem.time_preconditioning.size() ||
@@ -103,14 +102,12 @@ int main(int argc, char *argv[])
             outputFile << std::scientific << std::setprecision(10);
 
             // --- Write header ---
-            outputFile << "Iteration,Drag,Lift,Coeff Drag,CoeffLift,time prec,time solve\n";
+            outputFile << "Iteration,Coeff Drag,CoeffLift,time prec,time solve\n";
 
             // --- Write data ---
             for (size_t i = 0; i < num_iterations; ++i)
             {
                 outputFile << i << ","
-                           << problem.vec_drag_force[i] << ","
-                           << problem.vec_lift_force[i] << ","
                            << problem.vec_drag_coeff[i] << ","
                            << problem.vec_lift_coeff[i] << ","
                            << problem.time_preconditioning[i] << ","
@@ -148,7 +145,6 @@ int main(int argc, char *argv[])
             // --- Validate vector sizes ---
             const size_t num_iterations = problem.vec_drag_force.size();
             if (num_iterations == 0 ||
-                num_iterations != problem.vec_lift_force.size() ||
                 num_iterations != problem.vec_drag_coeff.size() ||
                 num_iterations != problem.vec_lift_coeff.size() ||
                 num_iterations != problem.time_preconditioning.size() ||
@@ -170,14 +166,12 @@ int main(int argc, char *argv[])
             outputFile << std::scientific << std::setprecision(10);
 
             // --- Write header ---
-            outputFile << "Iteration,Drag,Lift,Coeff Drag,CoeffLift,time prec,time solve\n";
+            outputFile << "Iteration,Coeff Drag,CoeffLift,time prec,time solve\n";
 
             // --- Write data ---
             for (size_t i = 0; i < num_iterations; ++i)
             {
                 outputFile << i << ","
-                           << problem.vec_drag_force[i] << ","
-                           << problem.vec_lift_force[i] << ","
                            << problem.vec_drag_coeff[i] << ","
                            << problem.vec_lift_coeff[i] << ","
                            << problem.time_preconditioning[i] << ","

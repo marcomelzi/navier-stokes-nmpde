@@ -814,7 +814,7 @@ void NavierStokes<dim>::solve_time_step(const Preconditioner &preconditioner)
         }
 
         // ======================================================================
-        // PCD / APPROX_PCD — need pressure-space matrices not yet available
+        // PCD / APPROX_PCD
         // ======================================================================
         case (Preconditioner::PCD):
         {

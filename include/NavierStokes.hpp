@@ -17,6 +17,7 @@
 #include <functional>
 #include <limits>
 #include <algorithm>
+#include <stdexcept>
 
 /**
  * @brief Include for custom preconditioner definitions used in the solver.
@@ -208,6 +209,8 @@ public:
                 return 1.;
             case InflowRegime::Unsteady:
                 return std::sin(M_PI * time / 8.0);
+            default:
+                throw std::runtime_error("Unknown InflowRegime.");
             }
         }
 
@@ -238,14 +241,14 @@ public:
             }
         }
         /**
-         * @brief Peak velocity of the inflow profile.
-         */
-        const double peak_velocity;
-
-        /**
          * @brief Inflow regime (steady or unsteady).
          */
         const InflowRegime regime;
+
+        /**
+         * @brief Peak velocity of the inflow profile.
+         */
+        const double peak_velocity;
 
         /**
          * @brief Height of the channel for the inlet velocity profile.
@@ -282,16 +285,15 @@ public:
                  const double &peak_velocity_,
                  const InflowRegime regime_ = InflowRegime::Steady,
                  const Preconditioner preconditioner_ = Preconditioner::YOSIDA,
-                const std::string &output_dir_="output")
+                 const std::string &output_dir_ = "output")
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
           mpi_rank(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)),
           pcout(std::cout, mpi_rank == 0),
+          inlet_velocity(regime_, peak_velocity_),
+          final_time(final_time_),
           mesh_file_name(mesh_file_name_),
           degree_velocity(degree_velocity_),
           degree_pressure(degree_pressure_),
-          final_time(final_time_),
-          time_step_size(time_step_size_),
-          inlet_velocity(regime_, peak_velocity_),
           preconditioner(preconditioner_),
           mesh(MPI_COMM_WORLD),
           output_dir(output_dir_)
