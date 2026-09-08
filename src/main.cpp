@@ -73,23 +73,54 @@ int main(int argc, char *argv[])
                       << timer.wall_time() << " seconds" << std::endl;
 
             const std::string output_filename = "results.csv";
-            std::ofstream outputFile(output_filename);
 
-            if (!outputFile.is_open())
+            // --- Validate vector sizes ---
+            const size_t num_iterations = problem.vec_drag_force.size();
+            if (num_iterations == 0 ||
+                num_iterations != problem.vec_lift_force.size() ||
+                num_iterations != problem.vec_drag_coeff.size() ||
+                num_iterations != problem.vec_lift_coeff.size() ||
+                num_iterations != problem.time_preconditioning.size() ||
+                num_iterations != problem.time_solve.size())
             {
-                std::cerr << "Error opening output file" << std::endl;
+                std::cerr << "Error: Vector sizes are inconsistent or empty." << std::endl;
                 return -1;
             }
-            outputFile << "Iteration, Drag, Lift, Coeff Drag, CoeffLift, time prec, time solve" << std::endl;
 
-            for (size_t i = 0; i < problem.vec_drag_force.size(); i++)
+            // --- Open file ---
+            std::ofstream outputFile(output_filename);
+            if (!outputFile.is_open())
             {
-                outputFile << i << ", " << problem.vec_drag_force[i] << ", " << problem.vec_lift_force[i] << ", "
-                           << problem.vec_drag_coeff[i] << ", " << problem.vec_lift_coeff[i] << ", "
-                           << problem.time_preconditioning[i] << ", " << problem.time_solve[i]
-                           << std::endl;
+                std::cerr << "Error: Failed to open " << output_filename << std::endl;
+                return -1;
             }
-            outputFile.close();
+
+            // --- Set floating-point precision (e.g., 10 digits) ---
+            outputFile << std::scientific << std::setprecision(10);
+
+            // --- Write header ---
+            outputFile << "Iteration,Drag,Lift,Coeff Drag,CoeffLift,time prec,time solve\n";
+
+            // --- Write data ---
+            for (size_t i = 0; i < num_iterations; ++i)
+            {
+                outputFile << i << ","
+                           << problem.vec_drag_force[i] << ","
+                           << problem.vec_lift_force[i] << ","
+                           << problem.vec_drag_coeff[i] << ","
+                           << problem.vec_lift_coeff[i] << ","
+                           << problem.time_preconditioning[i] << ","
+                           << problem.time_solve[i] << "\n";
+            }
+
+            // --- Check for write errors ---
+            if (!outputFile)
+            {
+                std::cerr << "Error: Failed to write to " << output_filename << std::endl;
+                return -1;
+            }
+
+            std::cout << "Results written to " << output_filename << std::endl;
         }
     }
     else if (mesh_file_name == "../mesh/Navier_Stokes_3D_fine.msh" || mesh_file_name == "../mesh/Navier_Stokes_3D_coarse.msh")
@@ -109,23 +140,54 @@ int main(int argc, char *argv[])
                       << timer.wall_time() << " seconds" << std::endl;
 
             const std::string output_filename = "results.csv";
-            std::ofstream outputFile(output_filename);
 
-            if (!outputFile.is_open())
+            // --- Validate vector sizes ---
+            const size_t num_iterations = problem.vec_drag_force.size();
+            if (num_iterations == 0 ||
+                num_iterations != problem.vec_lift_force.size() ||
+                num_iterations != problem.vec_drag_coeff.size() ||
+                num_iterations != problem.vec_lift_coeff.size() ||
+                num_iterations != problem.time_preconditioning.size() ||
+                num_iterations != problem.time_solve.size())
             {
-                std::cerr << "Error opening output file" << std::endl;
+                std::cerr << "Error: Vector sizes are inconsistent or empty." << std::endl;
                 return -1;
             }
-            outputFile << "Iteration, Drag, Lift, Coeff Drag, CoeffLift, time prec, time solve" << std::endl;
 
-            for (size_t i = 0; i < problem.vec_drag_force.size(); i++)
+            // --- Open file ---
+            std::ofstream outputFile(output_filename);
+            if (!outputFile.is_open())
             {
-                outputFile << i << ", " << problem.vec_drag_force[i] << ", " << problem.vec_lift_force[i] << ", "
-                           << problem.vec_drag_coeff[i] << ", " << problem.vec_lift_coeff[i] << ", "
-                           << problem.time_preconditioning[i] << ", " << problem.time_solve[i]
-                           << std::endl;
+                std::cerr << "Error: Failed to open " << output_filename << std::endl;
+                return -1;
             }
-            outputFile.close();
+
+            // --- Set floating-point precision (e.g., 10 digits) ---
+            outputFile << std::scientific << std::setprecision(10);
+
+            // --- Write header ---
+            outputFile << "Iteration,Drag,Lift,Coeff Drag,CoeffLift,time prec,time solve\n";
+
+            // --- Write data ---
+            for (size_t i = 0; i < num_iterations; ++i)
+            {
+                outputFile << i << ","
+                           << problem.vec_drag_force[i] << ","
+                           << problem.vec_lift_force[i] << ","
+                           << problem.vec_drag_coeff[i] << ","
+                           << problem.vec_lift_coeff[i] << ","
+                           << problem.time_preconditioning[i] << ","
+                           << problem.time_solve[i] << "\n";
+            }
+
+            // --- Check for write errors ---
+            if (!outputFile)
+            {
+                std::cerr << "Error: Failed to write to " << output_filename << std::endl;
+                return -1;
+            }
+
+            std::cout << "Results written to " << output_filename << std::endl;
         }
     }
     else
