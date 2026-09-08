@@ -1,7 +1,7 @@
 # Navier-Stokes Solver 
 ## Authors
 - __Lorenzo Terzi__  Master's Degree student in High-Performance Computing Engineering at Politecnico di Milano\
-Email: [](mailto:)
+Email: [lorenzo1.terzi@mail.polimi.it](mailto:lorenzo1.terzi@mail.polimi.it)
 
 - __Daniele Cursano__ Master's Degree student in High-Performance Computing Engineering at Politecnico di Milano\
 Email: [](mailto:)
