@@ -4,7 +4,7 @@
 Email: [lorenzo1.terzi@mail.polimi.it](mailto:lorenzo1.terzi@mail.polimi.it)
 
 - __Daniele Cursano__ Master's Degree student in High-Performance Computing Engineering at Politecnico di Milano\
-Email: [](mailto:)
+Email: [daniele.cursano@mail.polimi.it](mailto:daniele.cursano@mail.polimi.it)
 
 - __Marco Melzi__ Master's Degree student in High-Performance Computing Engineering at Politecnico di Milano\
 Mail: [marco2.melzi@mail.polimi.it](mailto:marco2.melzi@mail.polimi.it)
@@ -70,15 +70,19 @@ $ ./navier-stokes
 ### Executing
 After having generated the executable the user can start the computation by execute from the build directory the command:
 ```
-./navier-stokes <dim> <test_case>
+./navier-stokes <config_file> <output_dir>
 ```
-provided dim = {2, 3} and test_case{1, 2, 3}.
+
 
 or
 ```
-mpirun ./navier-stokes <dim> <test_case>
+mpirun ./navier-stokes <config_file> <output_dir>
 ```
 to execute it in parallel using MPI.
+
+**Arguments:**
+- `<config_file>`: Path to the selected configuration file containing the simulation parameters (e.g., `config_2D1.txt`).
+- `<output_dir>`: Path to the directory where the resulting output files will be written (e.g., `./output`).
 
 ### Outputs
 During the execution the output is generated inside the output folder containing the result of the computation.
