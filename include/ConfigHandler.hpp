@@ -54,6 +54,20 @@ Preconditioner stringToPreconditioner(const std::string &str)
         return Preconditioner::SIMPLE;
     if (str == "YOSIDA")
         return Preconditioner::YOSIDA;
+    if (str == "APPROX_SIMPLE")
+        return Preconditioner::APPROX_SIMPLE;
+    if (str == "APPROX_YOSIDA")
+        return Preconditioner::APPROX_YOSIDA;
+    if (str == "IDENTITY")
+        return Preconditioner::IDENTITY;
+    if (str == "BLOCK_IDENTITY")
+        return Preconditioner::BLOCK_IDENTITY;
+    if (str == "BLOCK_TRIANGULAR")
+        return Preconditioner::BLOCK_TRIANGULAR;
+    if (str == "PCD")
+        return Preconditioner::PCD;
+    if (str == "APPROX_PCD")
+        return Preconditioner::APPROX_PCD;
     throw std::runtime_error("Invalid Preconditioner value: " + str);
 }
 
