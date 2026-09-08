@@ -16,12 +16,12 @@
 #include <iostream>
 #include <functional>
 #include <limits>
+#include <algorithm>
 
 /**
  * @brief Include for custom preconditioner definitions used in the solver.
  */
 #include "./Preconditioners.hpp"
-
 #include "./IncludeFiles.hpp"
 
 /**
@@ -340,7 +340,7 @@ public:
      * @brief Vector storing the lift coefficient values computed at each time step.
      *
      * The lift coefficient is a dimensionless quantity representing the lift force
-     * normalized by dynamic pressure and reference area.
+     * normalized by dynamic pressure ad reference area.
      */
     std::vector<double> vec_lift_coeff;
 
@@ -357,6 +357,36 @@ public:
      * This is used for performance profiling of the solver.
      */
     std::vector<double> time_solve;
+
+    // -----------------------------------------------------------------------
+    // Stability / accuracy diagnostics
+    // -----------------------------------------------------------------------
+
+    /**
+     * @brief Minimum cell diameter of the mesh, computed once in setup().
+     *
+     * Used together with time_step_size and the velocity field to compute the
+     * advective CFL number at each time step.
+     */
+    double mesh_h_min = 0.0;
+
+    /**
+     * @brief Vector storing the advective CFL number at each time step,
+     * CFL = ||u||_inf * time_step_size / mesh_h_min.
+     *
+     * This is a diagnostic only: the scheme is implicit in the diffusion and
+     * time-derivative terms, so it does not need CFL <= 1 to remain stable in
+     * the linear-algebra sense, but a large CFL still degrades the temporal
+     * accuracy of the semi-implicit (Picard-lagged) convection term.
+     */
+    std::vector<double> vec_cfl;
+
+    /**
+     * @brief Pressure difference P(upstream) - P(downstream), computed by
+     * compute_pressure_difference() near the final time step, per the DFG
+     * benchmark point definitions.
+     */
+    double pressure_difference = 0.0;
 
 protected:
     // -----------------------------------------------------------------------
