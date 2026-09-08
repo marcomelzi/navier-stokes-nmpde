@@ -282,7 +282,7 @@ public:
                  const double &peak_velocity_,
                  const InflowRegime regime_ = InflowRegime::Steady,
                  const Preconditioner preconditioner_ = Preconditioner::YOSIDA,
-                const std::string &output_dir_)
+                const std::string &output_dir_="output")
         : mpi_size(Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)),
           mpi_rank(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)),
           pcout(std::cout, mpi_rank == 0),
