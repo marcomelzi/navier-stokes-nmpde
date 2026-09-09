@@ -295,8 +295,10 @@ public:
           degree_velocity(degree_velocity_),
           degree_pressure(degree_pressure_),
           preconditioner(preconditioner_),
+          time_step_size(time_step_size_),
           mesh(MPI_COMM_WORLD),
           output_dir(output_dir_)
+
     {
     }
 
@@ -526,8 +528,6 @@ protected:
      */
     const std::string mesh_file_name;
 
-    const std::string output_dir;
-
     /**
      * @brief Polynomial degree for the velocity finite element space.
      */
@@ -577,6 +577,8 @@ protected:
      * This object represents the computational mesh, distributed across MPI processes.
      */
     parallel::fullydistributed::Triangulation<dim> mesh;
+
+    const std::string output_dir;
 
     /**
      * @brief Finite element space.

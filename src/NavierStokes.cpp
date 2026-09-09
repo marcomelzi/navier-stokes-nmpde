@@ -254,7 +254,7 @@ void NavierStokes<dim>::setup()
  * @tparam dim Spatial dimension (2 or 3)
  * @param time Current simulation time
  *
- * @note This is called only once at the beginnin
+ * @note This is called only once at the beginning
  * @note Uses the current solution for nonlinear terms (Picard iteration)
  * @note Applies Dirichlet BCs: inlet (parabolic profile), walls/obstacle (zero)
  * @note The Temam stabilization term ensures kinetic energy conservation in the discrete system
@@ -276,7 +276,7 @@ void NavierStokes<dim>::assemble(const double &time)
     // Local matrices and vectors for cell contributions
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);               // Full system matrix
     FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);          // Mass matrix
-    FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);     // Stiffness (viscosity)
+    FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);     // Stiffness
     FullMatrix<double> cell_convection_matrix(dofs_per_cell, dofs_per_cell);    // Convection
     FullMatrix<double> cell_pressure_mass_matrix(dofs_per_cell, dofs_per_cell); // Pressure mass
     Vector<double> cell_rhs(dofs_per_cell);                                     // RHS vector
@@ -919,7 +919,7 @@ void NavierStokes<dim>::output(const unsigned int &time)
     // Write output to file
     const std::string output_file_name = "output-Navier-Stokes-" + std::to_string(dim) + "d";
     data_out.write_vtu_with_pvtu_record(
-        output_dir,                   // Output directory
+        output_dir,                    // Output directory
         output_file_name,              // Base filename
         time,                          // Time step index
         MPI_COMM_WORLD,                // MPI communicator
