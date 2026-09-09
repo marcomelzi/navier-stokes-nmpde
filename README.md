@@ -81,7 +81,7 @@ mpirun ./navier-stokes <config_file> <output_dir>
 to execute it in parallel using MPI.
 
 **Arguments:**
-- `<config_file>`: Path to the selected configuration file containing the simulation parameters (e.g., `config_2D1.txt`).
+- `<config_file>`: Path to the selected configuration file containing the simulation parameters (e.g., `../test/config_2D1.txt`).
 - `<output_dir>`: Path to the directory where the resulting output files will be written (e.g., `./output`).
 
 ### Outputs
