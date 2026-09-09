@@ -673,7 +673,6 @@ void NavierStokes<dim>::assemble_time_step(const double &time)
  *
  * @note Uses TrilinosWrappers for parallel linear algebra
  * @note Timing information is collected for performance profiling
- * @note **FIXED**: Changed `time_preconditioning` to `time_prec` to match header declaration
  */
 template <unsigned int dim>
 void NavierStokes<dim>::solve_time_step(const Preconditioner &preconditioner)
