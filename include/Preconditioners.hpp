@@ -28,8 +28,7 @@ enum class Preconditioner
     YOSIDA,
     APPROX_YOSIDA,
     PCD,
-    APPROX_PCD,
-    BLOCK_TRIANGULAR
+    APPROX_PCD
 };
 
 // ---------------------------------------------------------------
@@ -507,6 +506,7 @@ using PreconditionaPCD = PreconditionApproxPCD;
 // Generic Upper or Lower Block Triangular Preconditioner given a
 // custom user-provided Schur complement approximation matrix.
 // ---------------------------------------------------------------
+/*
 class PreconditionBlockTriangular : public BlockPrecondition
 {
 public:
@@ -581,5 +581,6 @@ private:
     unsigned int maxit;
     double tol;
 };
+*/
 
 #endif // PRECONDITIONERS_HPP

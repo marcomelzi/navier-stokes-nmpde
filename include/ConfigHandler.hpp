@@ -62,8 +62,6 @@ Preconditioner stringToPreconditioner(const std::string &str)
         return Preconditioner::IDENTITY;
     if (str == "BLOCK_IDENTITY")
         return Preconditioner::BLOCK_IDENTITY;
-    if (str == "BLOCK_TRIANGULAR")
-        return Preconditioner::BLOCK_TRIANGULAR;
     if (str == "PCD")
         return Preconditioner::PCD;
     if (str == "APPROX_PCD")

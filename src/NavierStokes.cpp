@@ -826,33 +826,6 @@ void NavierStokes<dim>::solve_time_step(const Preconditioner &preconditioner)
                 "Preconditioner::APPROX_PCD not yet implemented");
         }
 
-        // ======================================================================
-        // BLOCK_TRIANGULAR PRECONDITIONER
-        // ======================================================================
-        // Schur complement approximated by pressure_mass.block(1, 1), which
-        // assemble() already builds as ∫ p·q / ν dΩ — the standard
-        // Cahouet-Chabard pressure-mass approximation to S, and already
-        // scaled by 1/ν, so no extra assembly is needed.
-        // ======================================================================
-        case (Preconditioner::BLOCK_TRIANGULAR):
-        {
-            PreconditionBlockTriangular prec;
-            const bool is_upper = true; // solve pressure block first, then velocity
-
-            prec.initialize(
-                system_matrix.block(0, 0), // F: velocity-velocity block
-                negB,                      // -B: pressure-velocity block
-                B_transpose,               // +B^T: velocity-pressure block
-                pressure_mass.block(1, 1), // Schur approx: (1/ν) * Mp
-                /*maxit=*/10000,
-                /*tol=*/1e-2,
-                /*ilu=*/true,
-                is_upper);
-
-            solve_with_preconditioner(prec);
-            break;
-        }
-
         default:
             throw std::runtime_error("Preconditioner not yet implemented in solve_time_step().");
         }
